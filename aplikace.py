@@ -158,7 +158,7 @@ if 'prvky_df' not in st.session_state:
 if 'zakazka' not in st.session_state:
     st.session_state.zakazka = []
 
-# Inicializace stavů pro zadávací políčka, abychom je mohli čistit bezpečně
+# Inicializace stavů pro zadávací políčka, aby se čistila po přidání
 if 'reset_counter' not in st.session_state:
     st.session_state.reset_counter = 0
 
@@ -205,7 +205,6 @@ with tab_kalk:
         st.header("2. Přidat položku")
         v_prvek = st.selectbox("Prvek", list(prv_dict.keys()))
         
-        # Unikátní klíč založený na počítadle reset_counter zaručí vyčištění hodnot po kliknutí na přidání
         v_rs = st.number_input("Rozvinutá šíře - RŠ (mm)", min_value=10, value=250, step=1, key=f"rs_{st.session_state.reset_counter}")
         
         default_ohyby = int(prv_dict[v_prvek]["Ohyby"]) if v_prvek in prv_dict else 0
@@ -223,7 +222,6 @@ with tab_kalk:
                 "Kusů": v_ks,
                 "Atyp příplatek/ks (Kč)": v_priplatek
             })
-            # Bezpečné inkrementování počítadla, které vyčistí (vynuluje) formulář na výchozí hodnoty
             st.session_state.reset_counter += 1
             st.rerun()
             
@@ -285,7 +283,7 @@ with tab_kalk:
                             st.error(f"CHYBA na řádku {row_id}: Prvek '{p['Prvek']}' s RŠ {rs_mm} mm je moc široký na materiál {v_mat}!")
                             continue
 
-                        # OPRAVENO: Cena práce se počítá jako: ohyby * cena za ohyb * délka (v metrech) * kusy
+                        # Výpočet ceny práce: ohyby * cena za ohyb * délka (v metrech) * kusy
                         cena_prace += (p["Ohyby"] * conf["cena_ohyb"]) * p["Metrů"] * p["Kusů"]
                         cena_priplatky += p.get("Atyp příplatek/ks (Kč)", 0.0) * p["Kusů"]
                         
@@ -358,12 +356,16 @@ with tab_kalk:
                 cena_prace = st.session_state.cena_prace
                 cena_priplatky = st.session_state.get('cena_priplatky', 0)
                 
-                # Popisky nově jasně specifikují ceny bez DPH a s DPH 21%
-                r1, r2, r3, r4 = st.columns(4)
+                # Výpočet celkové ceny bez DPH (Materiál + Práce + Atypické příplatky)
+                celkem_bez_dph = c_mat + cena_prace + cena_priplatky
+                
+                # 5 METRICKÝCH KARET VEDLE SEBE (S atyp příplatky a celkem bez DPH)
+                r1, r2, r3, r4, r5 = st.columns(5)
                 r1.metric("Materiál (bez DPH)", f"{c_mat:,.2f} Kč")
                 r2.metric("Práce / Ohyby (bez DPH)", f"{cena_prace:,.2f} Kč")
                 r3.metric("Atyp. příplatky (bez DPH)", f"{cena_priplatky:,.2f} Kč")
-                r4.metric("CELKEM (s DPH 21 %)", f"{(c_mat + cena_prace + cena_priplatky)*1.21:,.2f} Kč")
+                r4.metric("CELKEM (bez DPH)", f"{celkem_bez_dph:,.2f} Kč")
+                r5.metric("CELKEM (s DPH 21 %)", f"{(celkem_bez_dph)*1.21:,.2f} Kč")
 
                 buf = io.BytesIO()
                 with pd.ExcelWriter(buf, engine='openpyxl') as wr:
