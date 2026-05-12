@@ -108,28 +108,22 @@ with tab_kalk:
         v_prvek = st.selectbox("Typ prvku", list(prv_dict.keys()))
         default_ohyby = int(prv_dict[v_prvek]["Ohyby"])
         
-        # Ostatní pole zůstávají ve formuláři pro hromadné přidání
         with st.form("pridat_polozku_form", clear_on_submit=True):
             f_rs = st.number_input("Rozvinutá šíře - RŠ (mm)", min_value=10, value=250, step=1, key=f"rs_{st.session_state.reset_counter}")
             f_ohyby = st.number_input("Počet ohybů", value=default_ohyby, min_value=0, key=f"ohyby_{v_prvek}_{st.session_state.reset_counter}")
             f_m = st.number_input("Délka (m)", value=2.5, step=0.1, key=f"m_{st.session_state.reset_counter}")
             f_ks = st.number_input("Kusů", min_value=1, value=1, key=f"ks_{st.session_state.reset_counter}")
+            # PŘÍPLATEK JE ZPĚT VE FORMULÁŘI A POUZE CELÁ ČÍSLA
+            f_prip = st.number_input("Atyp. příplatek/ks (Kč - celá čísla)", min_value=0, value=0, step=1, key=f"prip_{st.session_state.reset_counter}")
             
-            # Skrytá pomocná hodnota pro příplatek uvnitř formuláře
             submitted = st.form_submit_button("➕ Přidat do zakázky", use_container_width=True)
-            
-        # PŘÍPLATEK MIMO FORMULÁŘ (pro okamžitý zápis po Enteru)
-        f_prip = st.number_input("Atyp. příplatek/ks (Kč - celá čísla)", value=0, step=1, key=f"prip_instant_{st.session_state.reset_counter}")
-        
-        # Pokud uživatel zadal příplatek a stiskl Enter, nebo klikl na tlačítko
-        if submitted or (f_prip > 0 and st.session_state.get('last_prip', 0) != f_prip):
-            st.session_state.zakazka.append({
-                "Prvek": v_prvek, "RŠ (mm)": f_rs, "Ohyby": f_ohyby,
-                "Metrů": f_m, "Kusů": f_ks, "Atyp příplatek/ks (Kč)": float(f_prip)
-            })
-            st.session_state.reset_counter += 1
-            st.session_state.last_prip = 0 # reset po zapsání
-            st.rerun()
+            if submitted:
+                st.session_state.zakazka.append({
+                    "Prvek": v_prvek, "RŠ (mm)": f_rs, "Ohyby": f_ohyby,
+                    "Metrů": f_m, "Kusů": f_ks, "Atyp příplatek/ks (Kč)": float(f_prip)
+                })
+                st.session_state.reset_counter += 1
+                st.rerun()
             
         if st.button("🗑️ Smazat celou zakázku", use_container_width=True):
             st.session_state.zakazka = []; st.session_state.calc_done = False; st.rerun()
