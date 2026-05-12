@@ -13,7 +13,7 @@ st.set_page_config(page_title="Konfigurátor Stavinvest", page_icon="✂️", la
 st.title("✂️ Konfigurátor Stavinvest")
 
 # ==========================================
-# MODULOVÝ PRUHOVÝ ALGORITMUS (BEZ ZMĚN)
+# MODULOVÝ PRUHOVÝ ALGORITMUS
 # ==========================================
 def pack_module_strips(items, coil_w, max_l, allow_rotation=True):
     best_modules = None
@@ -152,13 +152,37 @@ with tab_kalk:
                 st.session_state.calc_done = True; st.rerun()
 
             if st.session_state.get('calc_done'):
-                r = st.session_state.res; bez_dph = r["c_mat"] + r["c_prace"] + r["c_prip"]
+                r = st.session_state.res
+                bez_dph = r["c_mat"] + r["c_prace"] + r["c_prip"]
                 st.divider()
-                st.write("**Souhrn kalkulace (bez DPH):**")
-                m1, m2, m3 = st.columns(3); m1.metric("Materiál", f"{r['c_mat']:,.2f} Kč"); m2.metric("Práce (Ohyby)", f"{r['c_prace']:,.2f} Kč"); m3.metric("Atyp. příplatky", f"{r['c_prip']:,.2f} Kč")
-                m4, m5 = st.columns(2); m4.metric("CELKEM (bez DPH)", f"{bez_dph:,.2f}", delta_color="off"); m5.metric("CELKEM (s DPH 21%)", f"{bez_dph*1.21:,.2f}")
+                
+                # --- ESTETICKÝ SOUHRN ---
+                st.markdown("### 🧾 Souhrnná kalkulace")
+                
+                # Horní řada - menší písmo
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    st.caption("Materiál (bez DPH)")
+                    st.markdown(f"#### {r['c_mat']:,.2f} Kč")
+                with c2:
+                    st.caption("Práce / Ohyby (bez DPH)")
+                    st.markdown(f"#### {r['c_prace']:,.2f} Kč")
+                with c3:
+                    st.caption("Atypické příplatky (bez DPH)")
+                    st.markdown(f"#### {r['c_prip']:,.2f} Kč")
+                
+                st.write("") # Mezera
+                
+                # Dolní řada - velké písmo pro celkové sumy
+                c4, c5 = st.columns(2)
+                with c4:
+                    st.markdown(f"<p style='margin-bottom:-10px; color:gray;'>CELKEM (bez DPH)</p>", unsafe_allow_html=True)
+                    st.markdown(f"## {bez_dph:,.2f} Kč")
+                with c5:
+                    st.markdown(f"<p style='margin-bottom:-10px; color:#D32F2F; font-weight:bold;'>CELKEM (s DPH 21 %)</p>", unsafe_allow_html=True)
+                    st.markdown(f"<h2 style='color:#D32F2F;'>{bez_dph*1.21:,.2f} Kč</h2>", unsafe_allow_html=True)
 
-# --- NÁKRESOVÁ ČÁST (VRÁCENA PLNÁ FUNKČNOST) ---
+# --- NÁKRESOVÁ ČÁST ---
 with tab_nakres:
     if st.session_state.get('calc_done') and 'res' in st.session_state:
         barvy = ['#3498db', '#e74c3c', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c']
