@@ -108,21 +108,28 @@ with tab_kalk:
         v_prvek = st.selectbox("Typ prvku", list(prv_dict.keys()))
         default_ohyby = int(prv_dict[v_prvek]["Ohyby"])
         
+        # Ostatní pole zůstávají ve formuláři pro hromadné přidání
         with st.form("pridat_polozku_form", clear_on_submit=True):
             f_rs = st.number_input("Rozvinutá šíře - RŠ (mm)", min_value=10, value=250, step=1, key=f"rs_{st.session_state.reset_counter}")
             f_ohyby = st.number_input("Počet ohybů", value=default_ohyby, min_value=0, key=f"ohyby_{v_prvek}_{st.session_state.reset_counter}")
             f_m = st.number_input("Délka (m)", value=2.5, step=0.1, key=f"m_{st.session_state.reset_counter}")
             f_ks = st.number_input("Kusů", min_value=1, value=1, key=f"ks_{st.session_state.reset_counter}")
-            f_prip = st.number_input("Atyp. příplatek/ks (Kč bez DPH)", value=0.0, step=10.0, key=f"prip_{st.session_state.reset_counter}")
             
+            # Skrytá pomocná hodnota pro příplatek uvnitř formuláře
             submitted = st.form_submit_button("➕ Přidat do zakázky", use_container_width=True)
-            if submitted:
-                st.session_state.zakazka.append({
-                    "Prvek": v_prvek, "RŠ (mm)": f_rs, "Ohyby": f_ohyby,
-                    "Metrů": f_m, "Kusů": f_ks, "Atyp příplatek/ks (Kč)": f_prip
-                })
-                st.session_state.reset_counter += 1
-                st.rerun()
+            
+        # PŘÍPLATEK MIMO FORMULÁŘ (pro okamžitý zápis po Enteru)
+        f_prip = st.number_input("Atyp. příplatek/ks (Kč - celá čísla)", value=0, step=1, key=f"prip_instant_{st.session_state.reset_counter}")
+        
+        # Pokud uživatel zadal příplatek a stiskl Enter, nebo klikl na tlačítko
+        if submitted or (f_prip > 0 and st.session_state.get('last_prip', 0) != f_prip):
+            st.session_state.zakazka.append({
+                "Prvek": v_prvek, "RŠ (mm)": f_rs, "Ohyby": f_ohyby,
+                "Metrů": f_m, "Kusů": f_ks, "Atyp příplatek/ks (Kč)": float(f_prip)
+            })
+            st.session_state.reset_counter += 1
+            st.session_state.last_prip = 0 # reset po zapsání
+            st.rerun()
             
         if st.button("🗑️ Smazat celou zakázku", use_container_width=True):
             st.session_state.zakazka = []; st.session_state.calc_done = False; st.rerun()
@@ -156,7 +163,6 @@ with tab_kalk:
                 st.divider()
                 st.subheader("🧾 Souhrnná kalkulace")
                 
-                # Příprava dat
                 souhrn_final = pd.DataFrame([
                     {"Položka": "Materiál (bez DPH)", "Částka": r['c_mat']},
                     {"Položka": "Práce / Ohyby (bez DPH)", "Částka": r['c_prace']},
@@ -165,23 +171,17 @@ with tab_kalk:
                     {"Položka": "CELKEM S DPH 21 %", "Částka": bez_dph * 1.21}
                 ])
                 
-                # Funkce pro zvýraznění posledních dvou řádků
                 def highlight_totals(s):
-                    is_total = s.name in [3, 4] # Indexy celkových řádků
+                    is_total = s.name in [3, 4]
                     return ['background-color: #f0f2f6; font-weight: bold;' if is_total else '' for v in s]
 
-                # Aplikace stylů
                 styled_df = souhrn_final.style.apply(highlight_totals, axis=1).format({"Částka": "{:,.2f} Kč"})
 
-                # Zobrazení pomocí st.dataframe se zarovnáním doprava
                 st.dataframe(
                     styled_df,
                     column_config={
                         "Položka": st.column_config.TextColumn("Položka", width="medium"),
-                        "Částka": st.column_config.NumberColumn(
-                            "Částka",
-                            format="%.2f Kč",
-                        )
+                        "Částka": st.column_config.NumberColumn("Částka", format="%.2f Kč")
                     },
                     hide_index=True,
                     use_container_width=True
