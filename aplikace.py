@@ -7,7 +7,6 @@ import random
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from openpyxl.drawing.image import Image as xlImage
 
 # --- NASTAVENÍ STRÁNKY ---
 st.set_page_config(page_title="Konfigurátor Stavinvest", page_icon="✂️", layout="wide")
@@ -78,11 +77,13 @@ if 'prvky_df' not in st.session_state:
         {"Typ prvku": "Závětrná lišta spodní", "Ohyby": 6},
         {"Typ prvku": "Okapnice", "Ohyby": 2},
         {"Typ prvku": "Úžlabí", "Ohyby": 3},
+        {"Typ prvku": "Parapet", "Ohyby": 3},
         {"Typ prvku": "Atypický výrobek", "Ohyby": 9}
     ])
 
 if 'zakazka' not in st.session_state: st.session_state.zakazka = []
 if 'config' not in st.session_state: st.session_state.config = {"cena_ohyb": 10.0, "max_delka": 4000}
+if 'reset_counter' not in st.session_state: st.session_state.reset_counter = 0
 
 mat_dict = {r["Materiál"]: r for _, r in st.session_state.materialy_df.iterrows()}
 prv_dict = {r["Typ prvku"]: r for _, r in st.session_state.prvky_df.iterrows()}
@@ -105,42 +106,39 @@ with tab_kalk:
         st.markdown("---")
         st.subheader("2. Přidat položku")
         
-        # FORMULÁŘ PRO STABILNÍ RESET POLÍ
+        # Klíčový prvek: Výběr typu výrobku resetuje formulář na výchozí hodnoty ohybů
+        v_prvek = st.selectbox("Prvek", list(prv_dict.keys()))
+        default_ohyby = int(prv_dict[v_prvek]["Ohyby"])
+        
         with st.form("pridat_polozku_form", clear_on_submit=True):
-            f_prvek = st.selectbox("Prvek", list(prv_dict.keys()))
-            f_rs = st.number_input("Rozvinutá šíře - RŠ (mm)", min_value=10, value=250, step=1)
-            f_m = st.number_input("Délka (m)", value=2.5, step=0.1)
-            f_ks = st.number_input("Kusů", min_value=1, value=1)
-            f_prip = st.number_input("Atyp. příplatek/ks (Kč bez DPH)", value=0.0)
+            # Ostatní pole se nulují díky reset_counter, ale ohyby berou vždy default z tabulky
+            f_rs = st.number_input("Rozvinutá šíře - RŠ (mm)", min_value=10, value=250, step=1, key=f"rs_{st.session_state.reset_counter}")
+            f_ohyby = st.number_input("Počet ohybů", value=default_ohyby, min_value=0, key=f"ohyby_{v_prvek}_{st.session_state.reset_counter}")
+            f_m = st.number_input("Délka (m)", value=2.5, step=0.1, key=f"m_{st.session_state.reset_counter}")
+            f_ks = st.number_input("Kusů", min_value=1, value=1, key=f"ks_{st.session_state.reset_counter}")
+            f_prip = st.number_input("Atyp. příplatek/ks (Kč bez DPH)", value=0.0, step=10.0, key=f"prip_{st.session_state.reset_counter}")
             
             submitted = st.form_submit_button("➕ Přidat do zakázky", use_container_width=True)
             if submitted:
-                # Načteme výchozí ohyby pro daný typ prvku
-                ohyby_default = int(prv_dict[f_prvek]["Ohyby"])
                 st.session_state.zakazka.append({
-                    "Prvek": f_prvek, "RŠ (mm)": f_rs, "Ohyby": ohyby_default,
+                    "Prvek": v_prvek, "RŠ (mm)": f_rs, "Ohyby": f_ohyby,
                     "Metrů": f_m, "Kusů": f_ks, "Atyp příplatek/ks (Kč)": f_prip
                 })
+                st.session_state.reset_counter += 1
                 st.rerun()
             
         if st.button("🗑️ Smazat celou zakázku", use_container_width=True):
             st.session_state.zakazka = []; st.session_state.calc_done = False; st.rerun()
 
     with col_res:
-        # VIZUÁLNÍ POSUN DOLŮ (Prázdné řádky)
-        st.write("")
-        st.write("")
-        st.write("")
-        st.write("")
-        st.write("")
-        st.write("")
+        # Vizuální posun dolů
+        for _ in range(7): st.write("")
         
         st.subheader("Výpočet a Optimalizace")
         if st.session_state.zakazka:
             df_zak = pd.DataFrame(st.session_state.zakazka)
             df_zak.insert(0, 'Řádek', range(1, len(df_zak) + 1))
             
-            # Editor pro úpravu ohybů, metrů nebo kusů přímo v tabulce
             edited_df = st.data_editor(df_zak, hide_index=True, use_container_width=True, key="editor_zak")
             st.session_state.zakazka = edited_df.drop(columns=['Řádek']).to_dict('records')
             
@@ -149,7 +147,6 @@ with tab_kalk:
                 items = []; c_prace = 0; c_prip = 0
                 
                 for idx, p in enumerate(st.session_state.zakazka):
-                    # VÝPOČET PRÁCE: ohyby * cena * délka * kusy
                     c_prace += (p["Ohyby"] * conf["cena_ohyb"]) * p["Metrů"] * p["Kusů"]
                     c_prip += p.get("Atyp příplatek/ks (Kč)", 0.0) * p["Kusů"]
                     for _ in range(int(p["Kusů"])): 
