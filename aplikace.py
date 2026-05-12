@@ -154,32 +154,30 @@ with tab_kalk:
                 r = st.session_state.res
                 bez_dph = r["c_mat"] + r["c_prace"] + r["c_prip"]
                 st.divider()
+                st.subheader("🧾 Souhrnná kalkulace")
                 
-                # --- NOVÝ PŘEHLEDNÝ SOUHRN POMOCÍ DATAFRAME ---
-                st.subheader("🧾 Souhrn kalkulace")
+                # Tabulka s daty
+                souhrn_final = pd.DataFrame([
+                    {"Položka": "Materiál (bez DPH)", "Částka": r['c_mat']},
+                    {"Položka": "Práce / Ohyby (bez DPH)", "Částka": r['c_prace']},
+                    {"Položka": "Atypické příplatky (bez DPH)", "Částka": r['c_prip']},
+                    {"Položka": "CELKEM BEZ DPH", "Částka": bez_dph},
+                    {"Položka": "CELKEM S DPH 21 %", "Částka": bez_dph * 1.21}
+                ])
                 
-                # Vytvoření tabulky pro zobrazení
-                souhrn_data = {
-                    "Položka": ["Materiál", "Práce / Ohyby", "Atypické příplatky", "CELKEM (bez DPH)", "CELKEM (s DPH 21 %)"],
-                    "Částka (Kč)": [
-                        f"{r['c_mat']:,.2f}",
-                        f"{r['c_prace']:,.2f}",
-                        f"{r['c_prip']:,.2f}",
-                        f"{bez_dph:,.2f}",
-                        f"{bez_dph * 1.21:,.2f}"
-                    ]
-                }
-                df_vysledek = pd.DataFrame(souhrn_data)
-                
-                # Zobrazení pomocí st.dataframe (čisté, zarovnané, funkční)
-                st.table(df_vysledek)
-                
-                # Zvýraznění finální ceny velkým písmem pod tabulkou
-                st.write("")
-                col_fin1, col_fin2 = st.columns(2)
-                with col_fin2:
-                    st.write(f"**Celkem bez DPH:** {bez_dph:,.2f} Kč")
-                    st.markdown(f"### **K úhradě s DPH:** :red[{bez_dph * 1.21:,.2f} Kč]")
+                # Zobrazení tabulky se zarovnáním doprava u čísel
+                st.dataframe(
+                    souhrn_final,
+                    column_config={
+                        "Položka": st.column_config.TextColumn("Položka"),
+                        "Částka": st.column_config.NumberColumn(
+                            "Částka (Kč)",
+                            format="%.2f Kč",
+                        )
+                    },
+                    hide_index=True,
+                    use_container_width=True
+                )
 
 # --- NÁKRESOVÁ ČÁST ---
 with tab_nakres:
