@@ -8,12 +8,10 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from openpyxl.drawing.image import Image as xlImage
-from openpyxl.utils import get_column_letter
 
 # --- NASTAVENÍ STRÁNKY ---
 st.set_page_config(page_title="Konfigurátor Stavinvest", page_icon="✂️", layout="wide")
 st.title("✂️ Konfigurátor Stavinvest")
-st.info("💡 **Nová funkce:** Rozvinutou šíři (RŠ) zadáváte ručně. Formulář se po přidání položky automaticky vyčistí.")
 
 # ==========================================
 # MODULOVÝ PRUHOVÝ ALGORITMUS
@@ -67,15 +65,12 @@ def pack_module_strips(items, coil_w, max_l, allow_rotation=True):
             formatted_bins.append({'w_coil': coil_w, 'odvinuto_mm': m['l'], 'placed': placed})
     return formatted_bins
 
-# --- DATA A CENÍK ---
-if 'config' not in st.session_state:
-    st.session_state.config = {"cena_ohyb": 10.0, "max_delka": 4000, "presah": 40, "povolit_rotaci": True}
-
+# --- DATA ---
 if 'materialy_df' not in st.session_state:
     st.session_state.materialy_df = pd.DataFrame([
-        {"Materiál": "svitek POZINK 0,55x1000mm", "Interní kód SI": "0160P003", "Šířka (mm)": 1000, "Cena/m2": 200.0, "Max délka tabule (mm)": 50000},
-        {"Materiál": "svitek POZINK 0,55x670mm", "Interní kód SI": "0160P002", "Šířka (mm)": 670, "Cena/m2": 218.0, "Max délka tabule (mm)": 50000},
-        {"Materiál": "svitek TITANZINEK 0,6x1000mm", "Interní kód SI": "0160T003", "Šířka (mm)": 1000, "Cena/m2": 611.0, "Max délka tabule (mm)": 50000}
+        {"Materiál": "svitek POZINK 0,55x1000mm", "Interní kód SI": "0160P003", "Šířka (mm)": 1000, "Cena/m2": 200.0, "Max délka": 50000},
+        {"Materiál": "svitek POZINK 0,55x670mm", "Interní kód SI": "0160P002", "Šířka (mm)": 670, "Cena/m2": 218.0, "Max délka": 50000},
+        {"Materiál": "svitek TITANZINEK 0,6x1000mm", "Interní kód SI": "0160T003", "Šířka (mm)": 1000, "Cena/m2": 611.0, "Max délka": 50000}
     ])
 
 if 'prvky_df' not in st.session_state:
@@ -87,7 +82,7 @@ if 'prvky_df' not in st.session_state:
     ])
 
 if 'zakazka' not in st.session_state: st.session_state.zakazka = []
-if 'reset_counter' not in st.session_state: st.session_state.reset_counter = 0
+if 'config' not in st.session_state: st.session_state.config = {"cena_ohyb": 10.0, "max_delka": 4000}
 
 mat_dict = {r["Materiál"]: r for _, r in st.session_state.materialy_df.iterrows()}
 prv_dict = {r["Typ prvku"]: r for _, r in st.session_state.prvky_df.iterrows()}
@@ -103,33 +98,38 @@ with tab_kalk:
     
     with col_in:
         st.subheader("1. Obecné údaje")
-        v_odberatel = st.text_input("Odběratel", st.session_state.get('odberatel', ''))
+        v_odberatel = st.text_input("Odběratel / Projekt", value=st.session_state.get('odberatel', ''))
+        st.session_state.odberatel = v_odberatel
         v_mat = st.selectbox("Materiál", list(mat_dict.keys()))
         
         st.markdown("---")
         st.subheader("2. Přidat položku")
-        v_prvek = st.selectbox("Prvek", list(prv_dict.keys()))
         
-        # POLÍČKA PRO ZADÁVÁNÍ (NULUJÍ SE DÍKY RESET_COUNTER)
-        v_rs = st.number_input("Rozvinutá šíře - RŠ (mm)", min_value=10, value=250, step=1, key=f"rs_{st.session_state.reset_counter}")
-        v_ohyby = st.number_input("Počet ohybů", value=int(prv_dict[v_prvek]["Ohyby"]), key=f"ohyby_{st.session_state.reset_counter}")
-        v_m = st.number_input("Délka (m)", value=2.5, step=0.1, key=f"m_{st.session_state.reset_counter}")
-        v_ks = st.number_input("Kusů", min_value=1, value=1, key=f"ks_{st.session_state.reset_counter}")
-        v_prip = st.number_input("Atyp. příplatek/ks (Kč bez DPH)", value=0.0, step=10.0, key=f"prip_{st.session_state.reset_counter}")
-        
-        if st.button("➕ Přidat do zakázky", type="primary", use_container_width=True):
-            st.session_state.zakazka.append({
-                "Prvek": v_prvek, "RŠ (mm)": v_rs, "Ohyby": v_ohyby,
-                "Metrů": v_m, "Kusů": v_ks, "Atyp příplatek/ks (Kč)": v_prip
-            })
-            st.session_state.reset_counter += 1
-            st.rerun()
+        # FORMULÁŘ PRO STABILNÍ RESET POLÍ
+        with st.form("pridat_polozku_form", clear_on_submit=True):
+            f_prvek = st.selectbox("Prvek", list(prv_dict.keys()))
+            f_rs = st.number_input("Rozvinutá šíře - RŠ (mm)", min_value=10, value=250, step=1)
+            f_m = st.number_input("Délka (m)", value=2.5, step=0.1)
+            f_ks = st.number_input("Kusů", min_value=1, value=1)
+            f_prip = st.number_input("Atyp. příplatek/ks (Kč bez DPH)", value=0.0)
             
-        if st.button("🗑️ Smazat vše", use_container_width=True):
+            submitted = st.form_submit_button("➕ Přidat do zakázky", use_container_width=True)
+            if submitted:
+                # Načteme výchozí ohyby pro daný typ prvku
+                ohyby_default = int(prv_dict[f_prvek]["Ohyby"])
+                st.session_state.zakazka.append({
+                    "Prvek": f_prvek, "RŠ (mm)": f_rs, "Ohyby": ohyby_default,
+                    "Metrů": f_m, "Kusů": f_ks, "Atyp příplatek/ks (Kč)": f_prip
+                })
+                st.rerun()
+            
+        if st.button("🗑️ Smazat celou zakázku", use_container_width=True):
             st.session_state.zakazka = []; st.session_state.calc_done = False; st.rerun()
 
     with col_res:
-        # VIZUÁLNÍ POSUN TABULKY DOLŮ
+        # VIZUÁLNÍ POSUN DOLŮ (Prázdné řádky)
+        st.write("")
+        st.write("")
         st.write("")
         st.write("")
         st.write("")
@@ -140,7 +140,8 @@ with tab_kalk:
             df_zak = pd.DataFrame(st.session_state.zakazka)
             df_zak.insert(0, 'Řádek', range(1, len(df_zak) + 1))
             
-            edited_df = st.data_editor(df_zak, hide_index=True, use_container_width=True, key="editor")
+            # Editor pro úpravu ohybů, metrů nebo kusů přímo v tabulce
+            edited_df = st.data_editor(df_zak, hide_index=True, use_container_width=True, key="editor_zak")
             st.session_state.zakazka = edited_df.drop(columns=['Řádek']).to_dict('records')
             
             if st.button("🚀 SPOČÍTAT ZAKÁZKU", type="primary", use_container_width=True):
@@ -163,19 +164,19 @@ with tab_kalk:
 
             if st.session_state.get('calc_done'):
                 r = st.session_state.res
-                # SUMA BEZ DPH (Materiál + Práce + Příplatky)
                 bez_dph = r["c_mat"] + r["c_prace"] + r["c_prip"]
                 
                 st.divider()
-                st.write("**Souhrn kalkulace (v Kč):**")
+                st.write("**Souhrn kalkulace (bez DPH):**")
                 m1, m2, m3 = st.columns(3)
-                m1.metric("Materiál (bez DPH)", f"{r['c_mat']:,.2f}")
-                m2.metric("Práce (bez DPH)", f"{r['c_prace']:,.2f}")
-                m3.metric("Atyp. příplatky (bez DPH)", f"{r['c_prip']:,.2f}")
+                m1.metric("Materiál", f"{r['c_mat']:,.2f} Kč")
+                m2.metric("Práce (Ohyby)", f"{r['c_prace']:,.2f} Kč")
+                m3.metric("Atyp. příplatky", f"{r['c_prip']:,.2f} Kč")
                 
+                st.write("**Celkové součty:**")
                 m4, m5 = st.columns(2)
-                m4.metric("CELKEM (bez DPH)", f"{bez_dph:,.2f}", delta_color="off")
-                m5.metric("CELKEM (s DPH 21%)", f"{bez_dph*1.21:,.2f}")
+                m4.metric("CELKEM (bez DPH)", f"{bez_dph:,.2f} Kč")
+                m5.metric("CELKEM (s DPH 21%)", f"{bez_dph*1.21:,.2f} Kč")
 
 # --- NÁKRESOVÁ ČÁST ---
 with tab_nakres:
