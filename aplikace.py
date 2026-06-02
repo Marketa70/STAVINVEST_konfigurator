@@ -15,7 +15,7 @@ from openpyxl.utils import get_column_letter
 st.set_page_config(page_title="Konfigurátor Stavinvest", page_icon="✂️", layout="wide")
 
 # ==========================================
-# 🔒 PŘIHLAŠOVACÍ ÚDAJE
+# 🔒 PŘIHLAŠOVACÍ ÚDAJE (Kreativní klempířská hesla)
 # ==========================================
 UZIVATELE = {
     "admin@stavinvest.cz": "HlavniKlempir!",
@@ -65,12 +65,11 @@ if st.sidebar.button("🚪 Odhlásit se", use_container_width=True):
 # HLAVNÍ APLIKACE
 # ==========================================
 st.title("✂️ Konfigurátor Stavinvest")
-st.info("💡 **Nová funkce:** Rozvinutou šíři (RŠ) nyní zadáváte ručně v milimetrech pro každý prvek zvlášť.")
 
 # ==========================================
 # MODULOVÝ PRUHOVÝ ALGORITMUS
 # ==========================================
-def pack_module_strips(items, coil_w, max_l, allow_rotation=False): # Rotace je defaultně vypnutá
+def pack_module_strips(items, coil_w, max_l, allow_rotation=False):
     best_modules = None
     best_len = float('inf')
     
@@ -168,20 +167,17 @@ def pack_module_strips(items, coil_w, max_l, allow_rotation=False): # Rotace je 
             
     return formatted_bins
 
-# ==========================================
-# SOUBORY PRO TRVALÉ ULOŽENÍ CENÍKŮ
-# ==========================================
-MATERIALY_FILE = "materialy.csv"
-PRVKY_FILE = "prvky.csv"
+# --- SOUBORY PRO ULOŽENÍ DAT ---
+FILE_MAT = "materialy_db.csv"
+FILE_PRV = "prvky_db.csv"
 
 # --- INICIALIZACE NASTAVENÍ A DAT ---
 if 'config' not in st.session_state:
-    st.session_state.config = {"cena_ohyb": 10.0, "max_delka": 4000, "presah": 40, "povolit_rotaci": False} # Rotace trvale vypnuta
+    st.session_state.config = {"cena_ohyb": 10.0, "max_delka": 4000, "presah": 40}
 
-# Načtení materiálů (buď z CSV, nebo výchozí hodnoty)
 if 'materialy_df' not in st.session_state:
-    if os.path.exists(MATERIALY_FILE):
-        st.session_state.materialy_df = pd.read_csv(MATERIALY_FILE)
+    if os.path.exists(FILE_MAT):
+        st.session_state.materialy_df = pd.read_csv(FILE_MAT)
     else:
         st.session_state.materialy_df = pd.DataFrame([
             {"Materiál": "svitek POZINK 0,55x1000mm", "Interní kód SI": "0160P003", "Šířka (mm)": 1000, "Cena/m2": 200.0, "Max délka tabule (mm)": 50000},
@@ -201,10 +197,9 @@ if 'materialy_df' not in st.session_state:
             {"Materiál": "tabule PVC 0,6x1000x2000 ROOFPLAN 7035", "Interní kód SI": "0150PVC0037035", "Šířka (mm)": 1000, "Cena/m2": 591.0, "Max délka tabule (mm)": 2000}
         ])
 
-# Načtení prvků (buď z CSV, nebo výchozí hodnoty)
 if 'prvky_df' not in st.session_state:
-    if os.path.exists(PRVKY_FILE):
-        st.session_state.prvky_df = pd.read_csv(PRVKY_FILE)
+    if os.path.exists(FILE_PRV):
+        st.session_state.prvky_df = pd.read_csv(FILE_PRV)
     else:
         st.session_state.prvky_df = pd.DataFrame([
             {"Typ prvku": "Závětrná lišta spodní", "Ohyby": 6},
@@ -248,19 +243,19 @@ with tab_nastaveni:
 
 with tab_data:
     st.header("⚙️ Správa dat (Ceník a materiály)")
+    
     # Omezení práv pouze na administrátora pro tabulku dat
     if st.session_state.current_user == "admin@stavinvest.cz":
-        st.write("Jako administrátor můžete upravovat ceny a materiály. **Po úpravě klikněte na tlačítko níže**, aby se změny uložily natrvalo.")
-        edited_mat = st.data_editor(st.session_state.materialy_df, num_rows="dynamic", use_container_width=True)
-        edited_prv = st.data_editor(st.session_state.prvky_df, num_rows="dynamic", use_container_width=True)
+        st.write("Jako administrátor můžete upravovat ceny a materiály.")
+        edited_mat = st.data_editor(st.session_state.materialy_df, num_rows="dynamic", key="em", use_container_width=True)
+        edited_prv = st.data_editor(st.session_state.prvky_df, num_rows="dynamic", key="ep", use_container_width=True)
         
-        if st.button("💾 Uložit změny ceníku trvale", type="primary"):
-            edited_mat.to_csv(MATERIALY_FILE, index=False)
-            edited_prv.to_csv(PRVKY_FILE, index=False)
+        if st.button("💾 Uložit změny", type="primary"):
+            edited_mat.to_csv(FILE_MAT, index=False)
+            edited_prv.to_csv(FILE_PRV, index=False)
             st.session_state.materialy_df = edited_mat
             st.session_state.prvky_df = edited_prv
-            st.success("✅ Změny ceníku a prvků byly úspěšně a trvale uloženy!")
-            st.rerun()
+            st.success("✅ Změny ceníku a prvků byly úspěšně uloženy a zůstanou zachovány i po odhlášení!")
     else:
         st.warning("Pohled pro čtení. Úpravy ceníku může provádět pouze administrátor.")
         st.dataframe(st.session_state.materialy_df, use_container_width=True)
@@ -284,8 +279,7 @@ with tab_kalk:
             st.session_state.config["max_delka"] = st.number_input("Délka ohýbačky (mm)", value=int(st.session_state.config.get("max_delka", 4000)))
         with col_p2:
             st.session_state.config["presah"] = st.number_input("Přesah spojů (mm)", value=int(st.session_state.config.get("presah", 40)))
-        # Rotace pevně vypnuta pro podélné řezy, volba skryta.
-        st.session_state.config["povolit_rotaci"] = False
+        # Rotace byla zrušena
         
     st.markdown("---")
 
@@ -364,7 +358,7 @@ with tab_kalk:
                         seg = 1 if L_mm <= conf["max_delka"] else math.ceil((L_mm - conf["presah"]) / (conf["max_delka"] - conf["presah"]))
                         L_seg = (L_mm + (seg - 1) * conf["presah"]) / seg
                         
-                        # Rotace vždy false (podélné řezy)
+                        # Natvrdo vždy jen podélné řezy, žádná rotace
                         vejde_se = (rs_mm <= m_data["Šířka (mm)"])
                             
                         if not vejde_se:
@@ -372,6 +366,7 @@ with tab_kalk:
                             continue
 
                         cena_prace += (p["Ohyby"] * conf["cena_ohyb"]) * p["Metrů"] * p["Kusů"]
+                        
                         cena_priplatky += p.get("Atyp příplatek/ks (Kč)", 0.0) * p["Kusů"]
                         
                         for _ in range(int(p["Kusů"] * seg)):
@@ -382,7 +377,7 @@ with tab_kalk:
                         cena_m2 = m_data["Cena/m2"]
                         max_tab_len = min(m_data["Max délka tabule (mm)"], conf["max_delka"])
                         
-                        bins = pack_module_strips(items, w_coil, max_tab_len, False) # Rotace zakázána
+                        bins = pack_module_strips(items, w_coil, max_tab_len, allow_rotation=False) # Rotace zakázána
                         
                         tot_odvinuto = 0; tot_plocha = 0; tot_cena_mat = 0
                         for b in bins:
