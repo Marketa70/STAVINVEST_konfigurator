@@ -68,7 +68,7 @@ st.title("✂️ Konfigurátor Stavinvest")
 st.info("💡 **Nová funkce:** Rozvinutou šíři (RŠ) nyní zadáváte ručně v milimetrech pro každý prvek zvlášť.")
 
 # ==========================================
-# MODULOVÝ PRUHOVÝ ALGORITMUS (POUZE PODÉLNÉ ŘEZY)
+# MODULOVÝ PRUHOVÝ ALGORITMUS (VŽDY PODÉLNÉ ŘEZY)
 # ==========================================
 def pack_module_strips(items, coil_w, max_l, allow_rotation=False):
     best_modules = None
@@ -248,6 +248,7 @@ with tab_nastaveni:
 
 with tab_data:
     st.header("⚙️ Správa dat (Ceník a materiály)")
+    
     # Omezení práv pouze na administrátora pro tabulku dat
     if st.session_state.current_user == "admin@stavinvest.cz":
         st.write("Jako administrátor můžete upravovat ceny a materiály.")
@@ -283,7 +284,6 @@ with tab_kalk:
             st.session_state.config["max_delka"] = st.number_input("Délka ohýbačky (mm)", value=int(st.session_state.config.get("max_delka", 4000)))
         with col_p2:
             st.session_state.config["presah"] = st.number_input("Přesah spojů (mm)", value=int(st.session_state.config.get("presah", 40)))
-        # Checkbox "Povolit otáčení dílů o 90°" byl trvale smazán z UI.
         
     st.markdown("---")
 
@@ -380,7 +380,7 @@ with tab_kalk:
                         cena_m2 = m_data["Cena/m2"]
                         max_tab_len = min(m_data["Max délka tabule (mm)"], conf["max_delka"])
                         
-                        bins = pack_module_strips(items, w_coil, max_tab_len, allow_rotation=False) # Rotace trvale zakázána ve výpočtu
+                        bins = pack_module_strips(items, w_coil, max_tab_len, allow_rotation=False)
                         
                         tot_odvinuto = 0; tot_plocha = 0; tot_cena_mat = 0
                         for b in bins:
@@ -414,7 +414,7 @@ with tab_kalk:
                                 color = barvy[(p['id'] - 1) % len(barvy)] 
                                 ax.add_patch(patches.Rectangle((p['x'], p['y']), p['draw_w'], p['draw_h'], facecolor=color, edgecolor='black', alpha=0.8))
                                 font_size = 8 if p['draw_w'] > 500 else 6
-                                rotace_text = "" # Bez rotace
+                                rotace_text = ""
                                 ax.text(p['x'] + p['draw_w']/2, p['y'] + p['draw_h']/2, f"Ř.{p['id']} {p['Prvek']}\n({p['L']:.0f}x{p['rš']}){rotace_text}", 
                                         ha='center', va='center', fontsize=font_size, color='white', weight='bold')
                             osa_x_max = max(max_tab_len, 100) 
