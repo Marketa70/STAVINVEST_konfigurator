@@ -15,7 +15,7 @@ from openpyxl.utils import get_column_letter
 st.set_page_config(page_title="Konfigurátor Stavinvest", page_icon="✂️", layout="wide")
 
 # ==========================================
-# 🔒 PŘIHLAŠOVACÍ ÚDAJE (Kreativní klempířská hesla)
+# 🔒 PŘIHLAŠOVACÍ ÚDAJE
 # ==========================================
 UZIVATELE = {
     "admin@stavinvest.cz": "HlavniKlempir!",
@@ -65,9 +65,10 @@ if st.sidebar.button("🚪 Odhlásit se", use_container_width=True):
 # HLAVNÍ APLIKACE
 # ==========================================
 st.title("✂️ Konfigurátor Stavinvest")
+st.info("💡 **Nová funkce:** Rozvinutou šíři (RŠ) nyní zadáváte ručně v milimetrech pro každý prvek zvlášť.")
 
 # ==========================================
-# MODULOVÝ PRUHOVÝ ALGORITMUS
+# MODULOVÝ PRUHOVÝ ALGORITMUS (POUZE PODÉLNÉ ŘEZY)
 # ==========================================
 def pack_module_strips(items, coil_w, max_l, allow_rotation=False):
     best_modules = None
@@ -167,7 +168,9 @@ def pack_module_strips(items, coil_w, max_l, allow_rotation=False):
             
     return formatted_bins
 
-# --- SOUBORY PRO ULOŽENÍ DAT ---
+# ==========================================
+# SOUBORY PRO TRVALÉ ULOŽENÍ CENÍKŮ
+# ==========================================
 FILE_MAT = "materialy_db.csv"
 FILE_PRV = "prvky_db.csv"
 
@@ -175,6 +178,7 @@ FILE_PRV = "prvky_db.csv"
 if 'config' not in st.session_state:
     st.session_state.config = {"cena_ohyb": 10.0, "max_delka": 4000, "presah": 40}
 
+# Načtení materiálů
 if 'materialy_df' not in st.session_state:
     if os.path.exists(FILE_MAT):
         st.session_state.materialy_df = pd.read_csv(FILE_MAT)
@@ -197,6 +201,7 @@ if 'materialy_df' not in st.session_state:
             {"Materiál": "tabule PVC 0,6x1000x2000 ROOFPLAN 7035", "Interní kód SI": "0150PVC0037035", "Šířka (mm)": 1000, "Cena/m2": 591.0, "Max délka tabule (mm)": 2000}
         ])
 
+# Načtení prvků
 if 'prvky_df' not in st.session_state:
     if os.path.exists(FILE_PRV):
         st.session_state.prvky_df = pd.read_csv(FILE_PRV)
@@ -243,7 +248,6 @@ with tab_nastaveni:
 
 with tab_data:
     st.header("⚙️ Správa dat (Ceník a materiály)")
-    
     # Omezení práv pouze na administrátora pro tabulku dat
     if st.session_state.current_user == "admin@stavinvest.cz":
         st.write("Jako administrátor můžete upravovat ceny a materiály.")
@@ -279,7 +283,7 @@ with tab_kalk:
             st.session_state.config["max_delka"] = st.number_input("Délka ohýbačky (mm)", value=int(st.session_state.config.get("max_delka", 4000)))
         with col_p2:
             st.session_state.config["presah"] = st.number_input("Přesah spojů (mm)", value=int(st.session_state.config.get("presah", 40)))
-        # Rotace byla zrušena
+        # Checkbox "Povolit otáčení dílů o 90°" byl trvale smazán z UI.
         
     st.markdown("---")
 
@@ -358,7 +362,7 @@ with tab_kalk:
                         seg = 1 if L_mm <= conf["max_delka"] else math.ceil((L_mm - conf["presah"]) / (conf["max_delka"] - conf["presah"]))
                         L_seg = (L_mm + (seg - 1) * conf["presah"]) / seg
                         
-                        # Natvrdo vždy jen podélné řezy, žádná rotace
+                        # Natvrdo vždy jen podélné řezy
                         vejde_se = (rs_mm <= m_data["Šířka (mm)"])
                             
                         if not vejde_se:
@@ -366,7 +370,6 @@ with tab_kalk:
                             continue
 
                         cena_prace += (p["Ohyby"] * conf["cena_ohyb"]) * p["Metrů"] * p["Kusů"]
-                        
                         cena_priplatky += p.get("Atyp příplatek/ks (Kč)", 0.0) * p["Kusů"]
                         
                         for _ in range(int(p["Kusů"] * seg)):
@@ -377,7 +380,7 @@ with tab_kalk:
                         cena_m2 = m_data["Cena/m2"]
                         max_tab_len = min(m_data["Max délka tabule (mm)"], conf["max_delka"])
                         
-                        bins = pack_module_strips(items, w_coil, max_tab_len, allow_rotation=False) # Rotace zakázána
+                        bins = pack_module_strips(items, w_coil, max_tab_len, allow_rotation=False) # Rotace trvale zakázána ve výpočtu
                         
                         tot_odvinuto = 0; tot_plocha = 0; tot_cena_mat = 0
                         for b in bins:
@@ -411,7 +414,7 @@ with tab_kalk:
                                 color = barvy[(p['id'] - 1) % len(barvy)] 
                                 ax.add_patch(patches.Rectangle((p['x'], p['y']), p['draw_w'], p['draw_h'], facecolor=color, edgecolor='black', alpha=0.8))
                                 font_size = 8 if p['draw_w'] > 500 else 6
-                                rotace_text = " ↻" if p.get('rotated') else ""
+                                rotace_text = "" # Bez rotace
                                 ax.text(p['x'] + p['draw_w']/2, p['y'] + p['draw_h']/2, f"Ř.{p['id']} {p['Prvek']}\n({p['L']:.0f}x{p['rš']}){rotace_text}", 
                                         ha='center', va='center', fontsize=font_size, color='white', weight='bold')
                             osa_x_max = max(max_tab_len, 100) 
